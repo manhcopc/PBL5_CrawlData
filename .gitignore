@@ -14,3 +14,5 @@ __pycache__/
 
 output/models/*.bin
 output/models/*.pt
+
+đồ_vest/

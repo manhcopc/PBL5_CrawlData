@@ -8,8 +8,11 @@ from urllib.parse import urljoin, urlparse, parse_qs, urlsplit, urlunsplit
 from typing import List, Dict, Any
 from datetime import datetime, timezone, timedelta
 
-# ----------------- config -----------------
-LINK = "https://www.lazada.vn/tag/qu%E1%BA%A7n-nam/?spm=a2o4n.homepage.search.d_go&q=qu%E1%BA%A7n%20nam&catalog_redirect_tag=true"
+# ==============================================
+# CONFIG
+# ==============================================
+
+LINK = "https://www.lazada.vn/tag/%C4%91%E1%BB%93-vest/?spm=a2o4n.homepage.search.d_go&q=%C4%91%E1%BB%93%20vest&catalog_redirect_tag=true"
 MAX_PRODUCTS = 100  # None = no limit
 SAVE_REVIEWS = False  # Disable review crawl; use trend_analyzer.py instead
 MAX_REVIEWS_PER_PRODUCT = 0
@@ -17,16 +20,61 @@ MAX_REVIEWS_PER_PRODUCT = 0
 LAZADA_BASE = "https://www.lazada.vn"
 VN_TZ = timezone(timedelta(hours=7))
 
-# ----------------- output paths -----------------
+# ==============================================
+# HELPER: Extract search name from URL
+# ==============================================
+
+def extract_search_name_from_url(url: str) -> str:
+    """
+    Extract search name from URL parameter 'q=' and convert to safe folder name.
+    Examples:
+    - https://...?q=quần%20nam -> "quần_nam"
+    - https://...?q=áo+nữ -> "áo_nữ"
+    
+    Returns:
+        Sanitized search name (safe for folder names)
+    """
+    try:
+        parsed = urlparse(url)
+        params = parse_qs(parsed.query)
+        if 'q' in params and params['q']:
+            search_term = params['q'][0]
+            # URL decode
+            search_term = search_term.replace('%20', ' ').replace('+', ' ')
+            search_term = search_term.strip()
+            # Sanitize for folder name
+            search_term = re.sub(r"[^\w\s\.-]", "_", search_term, flags=re.UNICODE)
+            search_term = re.sub(r"\s+", "_", search_term).strip("_")
+            return search_term[:120] if search_term else "unknown_search"
+    except Exception:
+        pass
+    return "unknown_search"
+
+
+# ==============================================
+# OUTPUT PATHS (organized by search term)
+# ==============================================
+
 SCRIPT_DIR = Path(__file__).parent.resolve()  # /Users/copc/Sync/SCHOOL/HocKi6/PBL5/dataset/lazada
-DATASET_DIR = SCRIPT_DIR  # Chính folder hiện tại
-IMAGES_DIR = SCRIPT_DIR / "lazada_images"  # lazada/lazada_images/
+
+# Extract search name and create subfolder
+SEARCH_NAME = extract_search_name_from_url(LINK)
+DATASET_DIR = SCRIPT_DIR / SEARCH_NAME  # lazada/<search_name>/
+DATASET_DIR.mkdir(parents=True, exist_ok=True)
+
+IMAGES_DIR = DATASET_DIR / "lazada_images"  # lazada/<search_name>/lazada_images/
 IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 
-PRODUCTS_JSON = SCRIPT_DIR / "lazada_products.json"
-PRODUCT_SNAPSHOTS_JSONL = SCRIPT_DIR / "lazada_product_snapshots.jsonl"
-REVIEWS_JSONL = SCRIPT_DIR / "lazada_reviews.jsonl"
+PRODUCTS_JSON = DATASET_DIR / "lazada_products.json"
+PRODUCT_SNAPSHOTS_JSONL = DATASET_DIR / "lazada_product_snapshots.jsonl"
+REVIEWS_JSONL = DATASET_DIR / "lazada_reviews.jsonl"
 
+print(f"[Setup] Search name: '{SEARCH_NAME}'")
+print(f"[Setup] Data directory: {DATASET_DIR}")
+
+# ==============================================
+# UTILITY FUNCTIONS
+# ==============================================
 
 def safe_filename(s: str, max_len: int = 120) -> str:
     s = re.sub(r"[^\w\s\.-]", "_", s, flags=re.UNICODE)
@@ -142,7 +190,9 @@ def download_image_via_playwright(request_ctx, url: str, out_path: Path) -> bool
         return False
 
 
-# ----------------- sold + rating parsing -----------------
+# ==============================================
+# SOLD + RATING PARSING
+# ==============================================
 
 def parse_sold_count_from_text(txt: str) -> int:
     if not isinstance(txt, str) or not txt.strip():
@@ -276,23 +326,13 @@ def get_pdp_rating(page) -> tuple[float, int]:
     return parse_rating_from_text(rating_text)
 
 
+# ==============================================
+# PAGINATION
+# ==============================================
+
 def crawl_all_products_with_pagination(page, request_ctx, base_url: str, max_products: int = None) -> tuple[list[str], dict]:
     """
-    Crawl product URLs từ listing page, tự động chuyển trang (pagination).
-    
-    Strategy:
-    1. Sử dụng build_page_url() để tạo URL trang tiếp theo
-    2. Tải từng trang và trích xuất URLs
-    3. Dừng khi hết sản phẩm hoặc đạt giới hạn
-    
-    Args:
-        page: Playwright page object
-        request_ctx: Request context
-        base_url: URL listing page cơ bản
-        max_products: Giới hạn số sản phẩm (None = crawl hết, thường ~100)
-    
-    Returns:
-        (product_urls_list, product_sold_map_dict)
+    Crawl product URLs from listing page with automatic pagination.
     """
     print("\n[Pagination] Starting automatic pagination...")
     
@@ -371,7 +411,10 @@ def crawl_all_products_with_pagination(page, request_ctx, base_url: str, max_pro
     return product_urls, product_sold_map
 
 
-# ----------------- main -----------------
+# ==============================================
+# MAIN
+# ==============================================
+
 with sync_playwright() as p:
     print("[1/6] Connecting to Chrome via CDP at http://localhost:9022 ...")
     try:
@@ -383,7 +426,6 @@ with sync_playwright() as p:
             f"Original error: {e}"
         )
 
-    # Sometimes CDP attaches to a browser with no contexts exposed yet.
     context = browser.contexts[0] if browser.contexts else browser.new_context()
     page = context.pages[0] if context.pages else context.new_page()
     request_ctx = context.request
@@ -442,13 +484,11 @@ with sync_playwright() as p:
                 ],
             )
 
-            # rating
             rating_score, rating_total = get_pdp_rating(page)
 
             if sold_count == 0:
                 sold_count = get_sold_count_from_pdp(page)
 
-            # images
             image_urls = extract_image_urls(page)
             product_id = _infer_product_id_from_url(absolute_url)
 
@@ -466,10 +506,8 @@ with sync_playwright() as p:
                 if download_image_via_playwright(request_ctx, img_url, out_path):
                     image_paths.append(str(out_path))
 
-            # reviews (disabled to save requests; analyze trends first)
             reviews_written = 0
 
-            # normalize price number
             try:
                 price_number = float(re.sub(r"[^0-9]", "", price_text)) if price_text not in ("N/A", "") else 0.0
             except Exception:
