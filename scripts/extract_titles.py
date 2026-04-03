@@ -9,9 +9,9 @@ def main():
     
     json_path = os.path.join(ROOT_DIR, 'filtered_products_100.json')
     if not os.path.exists(json_path):
-        json_path = os.path.join(ROOT_DIR, 'output', 'simulation', 'filtered_products_100.json')
+        json_path = os.path.join(ROOT_DIR, 'data', 'vest', 'output', 'simulation', 'filtered_products_100.json')
         
-    output_txt_path = os.path.join(ROOT_DIR, 'output','filter', 'product_title.txt')
+    output_txt_path = os.path.join(ROOT_DIR, 'data', 'vest', 'output','filter', 'product_title.txt')
 
     try:
         with open(json_path, 'r', encoding='utf-8') as f:
