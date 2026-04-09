@@ -9,9 +9,11 @@ warnings.filterwarnings("ignore")
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CSV_PATH = os.path.join(ROOT_DIR, "data", "vest", "output", "simulation", "merged_vest_data.csv")
-OUTPUT_TREND_PATH = os.path.join(ROOT_DIR, "data", "vest", "output", "simulation", "trending_vests.json")
+OUTPUT_TREND_PATH = os.path.join(ROOT_DIR, "data", "vest", "output", "simulation", "trending_vests_01.json")
+MODEL_PATH = os.path.join(ROOT_DIR, "data", "vest", "output", "models", "phobert")
 
 TREND_THRESHOLD = 0.7
+
 
 def main():
     if not os.path.exists(CSV_PATH):
@@ -19,8 +21,9 @@ def main():
         print("Nhớ chạy merge_data cho folder vest trước nhé!")
         return
 
-    print(">>> Đang tải Model PhoBERT (wonrax)... (Lần đầu sẽ mất xíu thời gian)")
-    analyzer = pipeline("sentiment-analysis", model="wonrax/phobert-base-vietnamese-sentiment")
+    print(">>> Đang tải Model PhoBERT")
+    # analyzer = pipeline("sentiment-analysis", model="wonrax/phobert-base-vietnamese-sentiment")
+    analyzer = pipeline("sentiment-analysis", model=MODEL_PATH, tokenizer=MODEL_PATH)
     
     print(f">>> Đang đọc dữ liệu từ: {CSV_PATH}")
     df = pd.read_csv(CSV_PATH)
@@ -62,7 +65,7 @@ def main():
             result = analyzer(tokenized)[0]
             
             # Cứ thấy nhãn POS là cộng 1 điểm khen
-            if result['label'] == 'POS':
+            if result['label'] == 'LABEL_1':
                 pos_count += 1
                 
         # Tính tỷ lệ khen ngợi

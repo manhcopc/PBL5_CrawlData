@@ -13,12 +13,12 @@ warnings.filterwarnings("ignore")
 # CẤU HÌNH ĐƯỜNG DẪN
 # ==========================================
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-JSON_TREND_PATH = os.path.join(ROOT_DIR, "data", "vest", "output", "simulation", "trending_vests.json")
+JSON_TREND_PATH = os.path.join(ROOT_DIR, "data", "vest", "output", "simulation", "trending_vests_01.json")
 
 # Tạo thư mục mới để chứa Features (Vector)
 FEATURE_DIR = os.path.join(ROOT_DIR, "data", "vest", "output", "features")
 os.makedirs(FEATURE_DIR, exist_ok=True)
-OUTPUT_FEATURE_PATH = os.path.join(FEATURE_DIR, "trending_features.pt")
+OUTPUT_FEATURE_PATH = os.path.join(FEATURE_DIR, "trending_features_01.pt")
 
 # Chọn thiết bị chạy (GPU nếu có, không thì CPU)
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"

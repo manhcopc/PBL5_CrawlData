@@ -13,7 +13,7 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 class PhoBertSentimentClassifier(torch.nn.Module):
     def __init__(self, n_classes=2):
         super(PhoBertSentimentClassifier, self).__init__()
-        self.bert = AutoModel.from_pretrained("vinai/phobert-base")
+        self.bert = AutoModel.from_pretrained("wonrax/phobert-base-vietnamese-sentiment")
         self.drop = torch.nn.Dropout(p=0.3)
         self.out = torch.nn.Linear(self.bert.config.hidden_size, n_classes)
 
