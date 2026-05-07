@@ -13,8 +13,8 @@ import numpy as np
 
 # Relative paths - tương đối so với thư mục script này (lazada folder)
 SCRIPT_DIR = Path(__file__).parent.resolve()
-PRODUCTS_JSON = SCRIPT_DIR / "lazada_products.json"  # Input từ crawlData.py cùng folder
-OUTPUT_DIR = SCRIPT_DIR / "output"  # Tạo folder output bên trong lazada/
+PRODUCTS_JSON = SCRIPT_DIR / "đồ_vest" / "lazada_products.json"  # Input từ crawlData.py cùng folder
+OUTPUT_DIR = SCRIPT_DIR / "đồ_vest" / "output"  # Tạo folder output bên trong lazada/
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 SIM_DIR = OUTPUT_DIR / "simulation"
