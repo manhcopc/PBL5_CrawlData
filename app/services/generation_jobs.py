@@ -5,12 +5,12 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional
 
-import httpx
 from fastapi.encoders import jsonable_encoder
 
 from app.core.config import settings
 from app.schemas.payload import DesignRequest, GeneratedDesign, GenerationJobStatus
 from app.services.gen_service import gen_service
+from app.utils.webhook_logger import send_webhook_callback
 
 
 class GenerationQueueFull(RuntimeError):
@@ -159,13 +159,12 @@ class GenerationJobManager:
     async def _post_callback(self, job: GenerationJob) -> None:
         callback_url = str(job.request.callback_url)
         payload = jsonable_encoder(job.as_status())
-        try:
-            async with httpx.AsyncClient(timeout=settings.WEBHOOK_TIMEOUT_SECONDS) as client:
-                response = await client.post(callback_url, json=payload)
-                response.raise_for_status()
-            print(f"[Gen Queue] Delivered callback for job {job.job_id}.")
-        except Exception as exc:
-            print(f"[Gen Queue] Callback failed for job {job.job_id}: {exc}")
-
+        # Run the synchronous requests.post in a thread to keep the asyncio event loop unblocked
+        await asyncio.to_thread(
+            send_webhook_callback,
+            callback_url,
+            payload,
+            settings.WEBHOOK_TIMEOUT_SECONDS
+        )
 
 generation_job_manager = GenerationJobManager()
