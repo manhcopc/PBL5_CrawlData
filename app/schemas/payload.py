@@ -45,14 +45,18 @@ class TrendResponse(BaseModel):
 class DesignRequest(BaseModel):
     request_id: NonEmptyText = Field(..., max_length=80)
     target_style_prompt: NonEmptyText = Field(..., max_length=600)
+    target_season: str = Field("Summer", max_length=40)
+    target_audience: str = Field("General", max_length=80)
+    target_weather: str = Field("Sunny", max_length=40)
     base_image_url: HttpUrl
-    num_images: conint(ge=1, le=settings.MAX_GENERATION_IMAGES) = 1
+    num_images: conint(ge=1, le=settings.MAX_GENERATION_IMAGES) = 4
+    callback_url: Optional[HttpUrl] = None
     seed: Optional[conint(ge=0, le=2**32 - 1)] = None
     canny_low_threshold: Optional[conint(ge=0, le=255)] = None
     canny_high_threshold: Optional[conint(ge=0, le=255)] = None
 
-    @validator("target_style_prompt")
-    def normalize_prompt(cls, value: str) -> str:
+    @validator("target_style_prompt", "target_season", "target_audience", "target_weather")
+    def normalize_text_fields(cls, value: str) -> str:
         return " ".join(value.split())
 
     @validator("canny_high_threshold")
@@ -66,7 +70,6 @@ class DesignRequest(BaseModel):
 class GeneratedDesign(BaseModel):
     url: str
     seed: int
-    filename: str
 
 
 class GenerationJobAccepted(BaseModel):
@@ -85,4 +88,3 @@ class GenerationJobStatus(BaseModel):
     finished_at: Optional[datetime] = None
     generated_designs: List[GeneratedDesign] = Field(default_factory=list)
     error: Optional[str] = None
-

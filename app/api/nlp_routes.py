@@ -1,8 +1,10 @@
+import time
 from fastapi import APIRouter, HTTPException
 
 from app.schemas.payload import TrendRequest, TrendResponse
 from app.services.nlp_service import nlp_service
 from app.services.trend_scoring import compute_trend_score, extract_style_keywords
+from app.utils.metrics_logger import log_metric  # <-- Import hàm ghi log
 
 router = APIRouter()
 
@@ -14,6 +16,9 @@ async def analyze_trend_endpoint(payload: TrendRequest):
             status_code=500,
             detail=f"PhoBERT Service is offline: {nlp_service.load_error}",
         )
+
+    # --- BẮT ĐẦU ĐO THỜI GIAN ---
+    start_time = time.time()
 
     print(f"[API] Analyze trend request {payload.request_id}: {len(payload.products)} products.")
     analyzed_products = []
@@ -36,9 +41,18 @@ async def analyze_trend_endpoint(payload: TrendRequest):
 
     analyzed_products.sort(key=lambda product: product["trend_score"], reverse=True)
 
+    # --- KẾT THÚC ĐO THỜI GIAN VÀ GHI LOG ---
+    end_time = time.time()
+    latency = end_time - start_time
+    log_metric(
+        api_name="analyze_trend",
+        latency_sec=latency,
+        extra_info=f"processed_items:{len(payload.products)}"
+    )
+    print(f"[Metrics] Analyze trend hoàn tất trong {latency:.2f} giây.")
+
     return {
         "status": "success",
         "request_id": payload.request_id,
         "trends": analyzed_products[: payload.limit],
     }
-

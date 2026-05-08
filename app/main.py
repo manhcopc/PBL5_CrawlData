@@ -1,3 +1,5 @@
+import asyncio
+import contextlib
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -10,12 +12,28 @@ from app.services.generation_jobs import generation_job_manager
 from app.services.nlp_service import nlp_service
 
 
+async def cleanup_outputs_periodically() -> None:
+    interval_seconds = max(60, settings.OUTPUT_CLEANUP_INTERVAL_SECONDS)
+    while True:
+        await asyncio.sleep(interval_seconds)
+        try:
+            await asyncio.to_thread(gen_service.cleanup_outputs)
+        except Exception as exc:
+            print(f"[Output Cleanup] Failed: {exc}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     generation_job_manager.start()
     gen_service.cleanup_outputs()
-    yield
-    await generation_job_manager.stop()
+    cleanup_task = asyncio.create_task(cleanup_outputs_periodically())
+    try:
+        yield
+    finally:
+        cleanup_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await cleanup_task
+        await generation_job_manager.stop()
 
 
 app = FastAPI(
@@ -68,4 +86,3 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=False)
-
