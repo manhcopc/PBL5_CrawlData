@@ -16,4 +16,3 @@ output/models/*.bin
 output/models/*.pt
 output/simulation
 
-data
