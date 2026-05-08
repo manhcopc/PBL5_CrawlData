@@ -1,4 +1,5 @@
 import contextlib
+import gc
 import ipaddress
 import os
 import socket
@@ -13,11 +14,10 @@ import requests
 from PIL import Image, ImageOps
 
 from app.core.config import settings
-
+from app.utils.metrics_logger import log_metric  
 
 class SafeImageDownloadError(ValueError):
     pass
-
 
 class GenerativeService:
     _instance = None
@@ -208,6 +208,11 @@ class GenerativeService:
 
         import torch
 
+        # --- BẮT ĐẦU ĐO LƯỜNG ---
+        start_time = time.time()
+        if self.device == "cuda":
+            torch.cuda.reset_peak_memory_stats()
+
         print(f"[Gen Service] Downloading base image: {base_image_url}")
         base_image = self.resize_with_padding(self.download_image(base_image_url))
         canny_image = self.process_canny_edge(
@@ -245,9 +250,28 @@ class GenerativeService:
             generated.append({
                 "url": self._public_output_url(filename),
                 "seed": image_seed,
-                "filename": filename,
             })
             print(f"[Gen Service] Saved: {local_path}")
+            del image
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
+        # --- KẾT THÚC ĐO LƯỜNG VÀ GHI LOG ---
+        end_time = time.time()
+        latency = end_time - start_time
+        peak_vram = 0.0
+
+        if self.device == "cuda":
+            peak_vram = torch.cuda.max_memory_allocated() / (1024**3)
+        
+        log_metric(
+            api_name="generate_design", 
+            latency_sec=latency, 
+            vram_gb=peak_vram, 
+            extra_info=f"num_images:{requested_images}"
+        )
+        print(f"[Metrics] GenAI xong trong {latency:.2f}s | Đỉnh VRAM: {peak_vram:.2f} GB")
 
         return generated
 

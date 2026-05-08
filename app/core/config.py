@@ -16,10 +16,11 @@ class Settings:
     # Colab/ngrok runtime controls
     PUBLIC_BASE_URL: str = os.getenv("PUBLIC_BASE_URL", "http://localhost:8000")
     OUTPUT_DIR: str = os.getenv("OUTPUT_DIR", os.path.join(ROOT_DIR, "outputs"))
-    OUTPUT_TTL_HOURS: int = int(os.getenv("OUTPUT_TTL_HOURS", "24"))
+    OUTPUT_TTL_HOURS: int = int(os.getenv("OUTPUT_TTL_HOURS", "168"))
+    OUTPUT_CLEANUP_INTERVAL_SECONDS: int = int(os.getenv("OUTPUT_CLEANUP_INTERVAL_SECONDS", "3600"))
 
     # T4-safe generation defaults
-    MAX_GENERATION_IMAGES: int = int(os.getenv("MAX_GENERATION_IMAGES", "2"))
+    MAX_GENERATION_IMAGES: int = int(os.getenv("MAX_GENERATION_IMAGES", "4"))
     GENERATION_SIZE: int = int(os.getenv("GENERATION_SIZE", "512"))
     GENERATION_STEPS: int = int(os.getenv("GENERATION_STEPS", "30"))
     GENERATION_GUIDANCE_SCALE: float = float(os.getenv("GENERATION_GUIDANCE_SCALE", "7.5"))
@@ -34,6 +35,8 @@ class Settings:
 
     # One worker keeps VRAM stable on a single Tesla T4.
     GENERATION_QUEUE_CONCURRENCY: int = int(os.getenv("GENERATION_QUEUE_CONCURRENCY", "1"))
+    GENERATION_QUEUE_MAXSIZE: int = int(os.getenv("GENERATION_QUEUE_MAXSIZE", "10"))
     GENERATION_JOB_TTL_HOURS: int = int(os.getenv("GENERATION_JOB_TTL_HOURS", "6"))
+    WEBHOOK_TIMEOUT_SECONDS: float = float(os.getenv("WEBHOOK_TIMEOUT_SECONDS", "5"))
 
 settings = Settings()

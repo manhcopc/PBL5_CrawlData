@@ -5,9 +5,16 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional
 
+import httpx
+from fastapi.encoders import jsonable_encoder
+
 from app.core.config import settings
 from app.schemas.payload import DesignRequest, GeneratedDesign, GenerationJobStatus
 from app.services.gen_service import gen_service
+
+
+class GenerationQueueFull(RuntimeError):
+    pass
 
 
 @dataclass
@@ -45,16 +52,14 @@ class GenerationJobManager:
 
     def start(self) -> None:
         if self._queue is None:
-            self._queue = asyncio.Queue()
+            self._queue = asyncio.Queue(maxsize=settings.GENERATION_QUEUE_MAXSIZE)
         if self._lock is None:
             self._lock = asyncio.Lock()
         if self._workers:
             return
 
-        concurrency = max(1, settings.GENERATION_QUEUE_CONCURRENCY)
-        for index in range(concurrency):
-            self._workers.append(asyncio.create_task(self._worker(index + 1)))
-        print(f"[Gen Queue] Started {concurrency} generation worker(s).")
+        self._workers.append(asyncio.create_task(self._worker(1)))
+        print("[Gen Queue] Started 1 generation worker.")
 
     async def stop(self) -> None:
         for worker in self._workers:
@@ -72,7 +77,11 @@ class GenerationJobManager:
         assert self._queue is not None
         async with self._lock:
             self._jobs[job.job_id] = job
-        await self._queue.put(job.job_id)
+            try:
+                self._queue.put_nowait(job.job_id)
+            except asyncio.QueueFull as exc:
+                del self._jobs[job.job_id]
+                raise GenerationQueueFull("Generation queue is full.") from exc
         return job
 
     async def get(self, job_id: str) -> Optional[GenerationJob]:
@@ -86,6 +95,8 @@ class GenerationJobManager:
         for job in self._jobs.values():
             counts[job.status] = counts.get(job.status, 0) + 1
         counts["queue_depth"] = self._queue.qsize() if self._queue is not None else 0
+        counts["queue_capacity"] = settings.GENERATION_QUEUE_MAXSIZE
+        counts["worker_count"] = len(self._workers)
         return counts
 
     async def cleanup_expired(self) -> int:
@@ -142,6 +153,19 @@ class GenerationJobManager:
             job.finished_at = finished
             job.updated_at = finished
 
+        if job.status == "succeeded" and job.request.callback_url is not None:
+            await self._post_callback(job)
+
+    async def _post_callback(self, job: GenerationJob) -> None:
+        callback_url = str(job.request.callback_url)
+        payload = jsonable_encoder(job.as_status())
+        try:
+            async with httpx.AsyncClient(timeout=settings.WEBHOOK_TIMEOUT_SECONDS) as client:
+                response = await client.post(callback_url, json=payload)
+                response.raise_for_status()
+            print(f"[Gen Queue] Delivered callback for job {job.job_id}.")
+        except Exception as exc:
+            print(f"[Gen Queue] Callback failed for job {job.job_id}: {exc}")
+
 
 generation_job_manager = GenerationJobManager()
-
