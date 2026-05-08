@@ -12,7 +12,11 @@ env/
 __pycache__/
 *.py[cod]
 
+*.safetensors
+
 output/models/*.bin
 output/models/*.pt
 output/simulation
+
+data
 
