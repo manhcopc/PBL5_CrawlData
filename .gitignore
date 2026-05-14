@@ -16,7 +16,7 @@ __pycache__/
 
 output/models/*.bin
 output/models/*.pt
-output/simulation
 
 data
 
+đồ_vest/
