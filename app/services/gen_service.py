@@ -169,18 +169,33 @@ class GenerativeService:
         edges = np.concatenate([edges, edges, edges], axis=2)
         return Image.fromarray(edges)
 
+from typing import Dict
+
     def build_prompt(self, target_prompt: str) -> Dict[str, str]:
         sanitized_prompt = " ".join(target_prompt.split())[:600]
+        
+        # Bổ sung cụm từ khóa chuyên ép phong cách, chất liệu "Hoàng gia Anh"
+        royal_aesthetic = (
+            "British royal fashion aesthetic, Savile Row tailoring, "
+            "premium velvet and heavy tweed materials, intricate gold button details, "
+            "regal aristocratic vibe, elegant luxury menswear"
+        )
+        
+        # Base prompt giữ nguyên để đảm bảo chất lượng ảnh chụp
         base_prompt = (
             "high-end fashion product photography, sharp tailoring, realistic fabric texture, "
-            "studio lighting, detailed garment construction, clean background"
+            "studio lighting, detailed garment construction, clean background, 8k resolution"
         )
+        
+        # Thêm "cheap fabric" (vải rẻ tiền) vào negative prompt để cấm AI vẽ hàng chợ
         negative_prompt = (
             "low quality, blurry, distorted garment, messy seams, bad anatomy, extra limbs, "
-            "text, watermark, logo artifacts, cropped garment, duplicate clothing"
+            "text, watermark, logo artifacts, cropped garment, duplicate clothing, cheap fabric"
         )
+        
         return {
-            "prompt": f"{sanitized_prompt}, {base_prompt}",
+            # Nối chuỗi: [Yêu cầu người dùng] + [Phong cách Hoàng gia] + [Chất lượng ảnh]
+            "prompt": f"{sanitized_prompt}, {royal_aesthetic}, {base_prompt}",
             "negative_prompt": negative_prompt,
         }
 
